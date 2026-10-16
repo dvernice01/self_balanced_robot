@@ -14,6 +14,7 @@
 
 // configuration values for registers
 #define MPU6050_WAKEUP_CLOCK   0x01
+#define MPU6050_SLEEP_CLOCK    0x40
 //#define MPU6050_FIFO_XG_ACCEL  0x48
 //#define MPU6050_FIFO_ENABLE    0x40
 
@@ -28,12 +29,9 @@ typedef struct {
 	int16_t gyro_z;
 } MPU6050_Data_t ;
 
-//void MPU6050_Init(I2C_HandleTypeDef *hi2c);
-uint8_t MPU6050_Init(I2C_HandleTypeDef *hi2c);
+void MPU6050_Init(I2C_HandleTypeDef *hi2c);
 void MPU6050_Start_DMA_Read (I2C_HandleTypeDef *hi2c);
 void MPU6050_Process_Data(int16_t *acc_x, int16_t *acc_z, int16_t *gyro_y);
 
-// Esempio: uint8_t MPU6050_Init(I2C_HandleTypeDef *hi2c);
-// Esempio: void MPU6050_Read_DMA(...);
 
 #endif

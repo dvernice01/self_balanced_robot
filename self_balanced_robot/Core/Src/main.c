@@ -51,6 +51,7 @@ DMA_HandleTypeDef hdma_i2c1_rx;
 /* USER CODE BEGIN PV */
 MPU6050_Data_t sensor_data;
 volatile uint8_t ready_data = 0;
+volatile uint8_t stop_request = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,6 +61,57 @@ static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
+// I'm adding this function because the communication with the sensor couldn't stop propertly, so I'm forcing
+
+void I2C1_Bus_Recovery(void) {
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    // Temporarily deactivate I2C
+    HAL_I2C_DeInit(&hi2c1);
+
+    // Configuring scl as a output port because we want to manually write on it
+    GPIO_InitStruct.Pin = I2C1_SCL_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(I2C1_SCL_GPIO_Port, &GPIO_InitStruct);
+
+    // Configuring sda as an input port because we want to read it
+    GPIO_InitStruct.Pin = I2C1_SDA_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(I2C1_SDA_GPIO_Port, &GPIO_InitStruct);
+
+    // I'm sending up to 9 clock cycle because of data (8bits (1 byte) + ack/nack)
+    for (int i = 0; i < 9; i++) {
+        // If sda == 1 we stop the cycle because we want the condition to start connection (SDA 1->0 while SCL == 1)
+        if (HAL_GPIO_ReadPin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin) == GPIO_PIN_SET) {
+            break;
+        }
+
+        // SCL 0->1 (I'm simulation I2C connection)
+        HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_RESET);
+        HAL_Delay(1);
+        HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_SET);
+        HAL_Delay(1);
+    }
+
+    // I'm manually sending the stop condition for I2C (SCL==1 and SDA == 0->1)
+    // For this reason SDA should be an output port because we should set it to 1
+    GPIO_InitStruct.Pin = I2C1_SDA_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    HAL_GPIO_Init(I2C1_SDA_GPIO_Port, &GPIO_InitStruct);
+
+    HAL_GPIO_WritePin(I2C1_SCL_GPIO_Port, I2C1_SCL_Pin, GPIO_PIN_SET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_RESET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port, I2C1_SDA_Pin, GPIO_PIN_SET);   // Now stop condition is set because SDA == 0->1 with SCL==1
+    HAL_Delay(1);
+
+    // I'm configuring ports as I2C connection again instead of being a GPIO port
+    MX_I2C1_Init();
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -99,7 +151,7 @@ int main(void)
   MX_DMA_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-
+  I2C1_Bus_Recovery();
   MPU6050_Init(&hi2c1);
 
   /* USER CODE END 2 */
@@ -112,26 +164,23 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  if (MPU6050_Init(&hi2c1) == 1) {
-	  MPU6050_Start_DMA_Read(&hi2c1);
-	  while (1)
-	  {
-		  if (ready_data) {
-					  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
-					  printf("AccX: %d\r\n", sensor_data.accel_x);
-					  ready_data = 0;
-					  MPU6050_Start_DMA_Read(&hi2c1);
-				  }
-
-		/* USER CODE END WHILE */
-
-		/* USER CODE BEGIN 3 */
-
+  MPU6050_Start_DMA_Read(&hi2c1);
+  while (1)
+  {
+	  if (ready_data) {
+		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
+		  printf("AccX: %d\r\n", sensor_data.accel_x);
+		  ready_data = 0;
+		  MPU6050_Start_DMA_Read(&hi2c1);
 	  }
-	}
+	/* USER CODE END WHILE */
+
+	/* USER CODE BEGIN 3 */
+
+  }
+}
 
   /* USER CODE END 3 */
-}
 
 /**
   * @brief System Clock Configuration
@@ -272,6 +321,7 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
         ready_data = 1;
     }
 }
+
 /* USER CODE END 4 */
 
 /**
