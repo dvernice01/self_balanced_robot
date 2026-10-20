@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include "stm32f4xx.h"
 #include "mpu6050.h"
+#include "motors.h"
+#include "controller.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,10 +50,16 @@
 I2C_HandleTypeDef hi2c1;
 DMA_HandleTypeDef hdma_i2c1_rx;
 
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim6;
+
 /* USER CODE BEGIN PV */
 MPU6050_Data_t sensor_data;
 volatile uint8_t ready_data = 0;
 volatile uint8_t stop_request = 0;
+volatile int16_t target_velocity = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,6 +67,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 // I'm adding this function because the communication with the sensor couldn't stop propertly, so I'm forcing
@@ -150,9 +161,16 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_I2C1_Init();
+  MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   I2C1_Bus_Recovery();
   MPU6050_Init(&hi2c1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
   /* USER CODE END 2 */
 
@@ -169,18 +187,22 @@ int main(void)
   {
 	  if (ready_data) {
 		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
-		  printf("AccX: %d\r\n", sensor_data.accel_x);
+		  printf("AccX: %f\r\n", sensor_data.accel_x);
+		  printf("AccZ: %f\r\n", sensor_data.accel_z);
+		  printf("GyrY: %f\r\n", sensor_data.gyro_y);
 		  ready_data = 0;
+		  HAL_Delay(2000);
 		  MPU6050_Start_DMA_Read(&hi2c1);
 	  }
-	/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-	/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 
   }
-}
+
 
   /* USER CODE END 3 */
+}
 
 /**
   * @brief System Clock Configuration
@@ -264,6 +286,150 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 1199;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 240;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 499;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 240;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 9;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 41999;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -305,6 +471,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PB6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF2_TIM4;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
@@ -319,6 +493,40 @@ int __io_putchar(int ch) {
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c) {
     if (hi2c->Instance == I2C1) {
         ready_data = 1;
+    }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+    if (htim->Instance == TIM6) {
+
+        static uint8_t loop_divider = 0;
+        loop_divider++;
+        if (loop_divider >= 10) { // to get 20Hz
+            loop_divider = 0;
+
+            // Qui calcoli l'errore d'angolo con i dati dell'MPU6050
+            // Il PID dell'angolo genera la velocità desiderata (setpoint)
+            // target_velocity = AngleControl(current_angle);
+        }
+        // Calcolare i valori degli encoder e chiamare le funzione per il controllo
+
+//        // 2. LETTURA ENCODER (Delta tick)
+//        // Leggi i registri CNT (sostituisci htim3/htim4 con i tuoi timer)
+//        int16_t right_encoder_measurement = (int16_t)__HAL_TIM_GET_COUNTER(&htim3);
+//        int16_t left_encoder_measurement  = (int16_t)__HAL_TIM_GET_COUNTER(&htim4);
+//
+//        // Azzera i timer per leggere la variazione al prossimo giro
+//        __HAL_TIM_SET_COUNTER(&htim3, 0);
+//        __HAL_TIM_SET_COUNTER(&htim4, 0);
+//
+//        // 3. GESTIONE ANELLO VELOCE (VELOCITÀ)
+//        // Il PID velocità usa il target_velocity generato dall'angolo
+//        int16_t right_pwm = VelocityControl(right_encoder_measurement, target_velocity);
+//        int16_t left_pwm  = VelocityControl(left_encoder_measurement, target_velocity);
+//
+//        // 4. COMANDO MOTORI
+//        MotorSpeed(right_pwm, &htim2, TIM_CHANNEL_1, TIM_CHANNEL_2);
+//        MotorSpeed(left_pwm,  &htim2, TIM_CHANNEL_3, TIM_CHANNEL_4);
     }
 }
 

@@ -18,20 +18,23 @@
 //#define MPU6050_FIFO_XG_ACCEL  0x48
 //#define MPU6050_FIFO_ENABLE    0x40
 
+#define ACC_RES                16384.0
+#define GYRO_RES               131.0
+
 
 typedef struct {
-	int16_t accel_x;
-	int16_t accel_y;
-	int16_t accel_z;
-	int16_t temp;
-	int16_t gyro_x;
-	int16_t gyro_y;
-	int16_t gyro_z;
+	float accel_x;
+	float accel_y;
+	float accel_z;
+	float temp;
+	float gyro_x;
+	float gyro_y;
+	float gyro_z;
 } MPU6050_Data_t ;
 
 void MPU6050_Init(I2C_HandleTypeDef *hi2c);
 void MPU6050_Start_DMA_Read (I2C_HandleTypeDef *hi2c);
-void MPU6050_Process_Data(int16_t *acc_x, int16_t *acc_z, int16_t *gyro_y);
+void MPU6050_Process_Data(float *acc_x, float *acc_z, float *gyro_y);
 
 
 #endif
