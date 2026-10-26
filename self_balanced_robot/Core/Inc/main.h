@@ -73,6 +73,8 @@ void Error_Handler(void);
 #define R_MOTOR_PWM_1_GPIO_Port GPIOA
 #define R_MOTOR_PWM_2_Pin GPIO_PIN_7
 #define R_MOTOR_PWM_2_GPIO_Port GPIOA
+#define DRIVER_SLEEP_PIN_Pin GPIO_PIN_4
+#define DRIVER_SLEEP_PIN_GPIO_Port GPIOC
 #define Right_encoder_IN1_Pin GPIO_PIN_8
 #define Right_encoder_IN1_GPIO_Port GPIOA
 #define Right_encoder_IN2_Pin GPIO_PIN_9

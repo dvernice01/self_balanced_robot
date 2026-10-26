@@ -9,7 +9,6 @@ float Kp_v = 0.0f, Ki_v = 0.0f, Kd_v = 0.0f; // PID Velocity
 
 static uint8_t loop_divider = 0;
 static float vel_target = 0.0f;
-float current_angle = 0.0f;
 float target_angle = 0.0f;
 
 static float angle_integral   = 0.0f;

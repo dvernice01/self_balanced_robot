@@ -59,7 +59,7 @@ TIM_HandleTypeDef htim6;
 /* USER CODE BEGIN PV */
 MPU6050_Data_t sensor_data;
 volatile uint8_t ready_data = 0;
-float current_angle = 0.0f;
+//float current_angle = 0.0f;
 volatile uint8_t stop_request = 0;
 volatile int16_t target_velocity = 0;
 
@@ -190,6 +190,12 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   MPU6050_Start_DMA_Read(&hi2c1);
+  HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
+  int16_t ccr = 1100;
+  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, ccr);
+  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, ccr);
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
   while (1)
   {
 	  if (ready_data) {
@@ -569,6 +575,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
   GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -576,6 +585,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DRIVER_SLEEP_PIN_Pin */
+  GPIO_InitStruct.Pin = DRIVER_SLEEP_PIN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(DRIVER_SLEEP_PIN_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

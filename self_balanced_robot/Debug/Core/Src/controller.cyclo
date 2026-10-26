@@ -1,2 +1,2 @@
-../Core/Src/controller.c:35:6:PIDController	2
-../Core/Src/controller.c:79:7:AngleController	1
+../Core/Src/controller.c:34:6:PIDController	2
+../Core/Src/controller.c:78:7:AngleController	1
