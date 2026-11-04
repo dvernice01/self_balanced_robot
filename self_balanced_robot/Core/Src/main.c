@@ -27,6 +27,7 @@
 #include "mpu6050.h"
 #include "motors.h"
 #include "controller.h"
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,9 +60,12 @@ TIM_HandleTypeDef htim6;
 /* USER CODE BEGIN PV */
 MPU6050_Data_t sensor_data;
 volatile uint8_t ready_data = 0;
-//float current_angle = 0.0f;
+float current_angle = 0.0f;
 volatile uint8_t stop_request = 0;
 volatile int16_t target_velocity = 0;
+
+const float alpha_filter = 0.98f;
+const float dt = 0.01f;
 
 /* USER CODE END PV */
 
@@ -174,11 +178,15 @@ int main(void)
   /* USER CODE BEGIN 2 */
   I2C1_Bus_Recovery();
   MPU6050_Init(&hi2c1);
+
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
+  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL); // Avvia Encoder Destro
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL); // Avvia Encoder Sinistro
+  HAL_TIM_Base_Start_IT(&htim6);                  // Avvia Interrupt PID
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -191,20 +199,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   MPU6050_Start_DMA_Read(&hi2c1);
   HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
-  int16_t ccr = 1100;
-  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, ccr);
-  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
-  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, ccr);
-  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+
   while (1)
   {
 	  if (ready_data) {
 		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
+		  float accel_angle = atan2f(sensor_data.accel_x, sensor_data.accel_z) * (180.0f / 3.14159265f);
+
+		  // 3. Conversione giroscopio in gradi al secondo (assumendo range +/- 250 dps)
+		  float gyro_rate = sensor_data.gyro_y / 131.0f; // full-scale range of 131 Lsb/(°/s)
+
+		  // 4. Filtro Complementare
+		  current_angle = alpha_filter * (current_angle + gyro_rate * dt) + (1.0f - alpha_filter) * accel_angle;
 		  printf("AccX: %f\r\n", sensor_data.accel_x);
 		  printf("AccZ: %f\r\n", sensor_data.accel_z);
 		  printf("GyrY: %f\r\n", sensor_data.gyro_y);
 		  ready_data = 0;
-		  HAL_Delay(2000);
 		  MPU6050_Start_DMA_Read(&hi2c1);
 	  }
     /* USER CODE END WHILE */
@@ -616,6 +626,27 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     }
 }
 
+/* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    // Variabile statica per ricordare l'ultimo momento in cui è stato premuto
+    static uint32_t last_interrupt_time = 0;
+    uint32_t interrupt_time = HAL_GetTick();
+
+    if (GPIO_Pin == BUTTON_USER) // Usa la macro corretta per il tuo bottone
+    {
+        // Ignora gli interrupt se sono passati meno di 200ms (Debounce)
+        if (interrupt_time - last_interrupt_time > 200)
+        {
+        	if (BSP_PB_GetState(BUTTON_USER) == 1)
+			{
+				stop_request = !stop_request; // Esegue il toggle solo alla pressione
+			}
+        }
+        last_interrupt_time = interrupt_time;
+    }
+}
+/* USER CODE END 4 */
 
 /* USER CODE END 4 */
 
@@ -627,7 +658,8 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
+  BSP_LED_On(LED2);
+  //__disable_irq();
   while (1)
   {
   }
