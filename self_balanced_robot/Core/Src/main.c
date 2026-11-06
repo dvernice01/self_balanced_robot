@@ -61,6 +61,7 @@ TIM_HandleTypeDef htim6;
 MPU6050_Data_t sensor_data;
 volatile uint8_t ready_data = 0;
 float current_angle = 0.0f;
+int32_t trace_angle = 0;
 volatile uint8_t stop_request = 0;
 volatile int16_t target_velocity = 0;
 
@@ -176,52 +177,40 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-  I2C1_Bus_Recovery();
-  MPU6050_Init(&hi2c1);
+//    I2C1_Bus_Recovery();
+//    MPU6050_Init(&hi2c1);
 
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
-  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL); // Avvia Encoder Destro
-  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL); // Avvia Encoder Sinistro
-  HAL_TIM_Base_Start_IT(&htim6);                  // Avvia Interrupt PID
-  /* USER CODE END 2 */
+    // 1. Forza le velocità
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 999);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
 
-  /* Initialize leds */
-  BSP_LED_Init(LED2);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 999);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
 
-  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+    // 2. Sveglia il driver dei motori ADESSO (non dopo)
+    HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  MPU6050_Start_DMA_Read(&hi2c1);
-  HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
+    // 3. INCHIODA IL PROGRAMMA QUI: il PID non partirà mai e i motori gireranno all'infinito
+    while (1) {
+        BSP_LED_Toggle(LED2);
+        HAL_Delay(100);
+    }
 
-  while (1)
-  {
-	  if (ready_data) {
-		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
-		  float accel_angle = atan2f(sensor_data.accel_x, sensor_data.accel_z) * (180.0f / 3.14159265f);
-
-		  // 3. Conversione giroscopio in gradi al secondo (assumendo range +/- 250 dps)
-		  float gyro_rate = sensor_data.gyro_y / 131.0f; // full-scale range of 131 Lsb/(°/s)
-
-		  // 4. Filtro Complementare
-		  current_angle = alpha_filter * (current_angle + gyro_rate * dt) + (1.0f - alpha_filter) * accel_angle;
-		  printf("AccX: %f\r\n", sensor_data.accel_x);
-		  printf("AccZ: %f\r\n", sensor_data.accel_z);
-		  printf("GyrY: %f\r\n", sensor_data.gyro_y);
-		  ready_data = 0;
-		  MPU6050_Start_DMA_Read(&hi2c1);
-	  }
+    // --- TUTTO CIÒ CHE C'È SOTTO NON VERRÀ ESEGUITO DURANTE IL TEST ---
+    HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+    HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+    HAL_TIM_Base_Start_IT(&htim6);
+    /* USER CODE END 2 */
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-  }
+
 
 
   /* USER CODE END 3 */
@@ -377,9 +366,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 1;
+  htim2.Init.Prescaler = 7;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1199;
+  htim2.Init.Period = 999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
@@ -430,9 +419,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 1;
+  htim3.Init.Prescaler = 7;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 499;
+  htim3.Init.Period = 999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
