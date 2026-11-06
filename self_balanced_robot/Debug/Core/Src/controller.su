@@ -1,2 +1,2 @@
-../Core/Src/controller.c:41:6:PIDController	48	static
-../Core/Src/controller.c:94:7:AngleController	24	static
+../Core/Src/controller.c:41:6:PIDController	40	static
+../Core/Src/controller.c:124:7:AngleController	24	static

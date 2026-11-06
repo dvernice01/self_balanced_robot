@@ -68,6 +68,9 @@ volatile int16_t target_velocity = 0;
 const float alpha_filter = 0.98f;
 const float dt = 0.01f;
 
+extern volatile int32_t trace_vel_left;
+extern volatile int32_t trace_vel_right;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -177,42 +180,72 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-//    I2C1_Bus_Recovery();
-//    MPU6050_Init(&hi2c1);
+  I2C1_Bus_Recovery();
+  MPU6050_Init(&hi2c1);
 
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+//  // Avvia Timer
+//  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+//  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+//  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+//  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+//
+//  // Sveglia il driver
+//  HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
+//
+//  // Forza metà potenza assoluta (30000 su 59999)
+//  MotorSpeed(30000, &htim2, TIM_CHANNEL_1, TIM_CHANNEL_2);
+//  MotorSpeed(30000, &htim3, TIM_CHANNEL_1, TIM_CHANNEL_2);
+//
+//  // Blocca il codice qui
+//  while(1) {
+//      BSP_LED_Toggle(LED2);
+//      HAL_Delay(100);
+//  }
 
-    // 1. Forza le velocità
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 999);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 0);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 999);
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL); // Avvia Encoder Destro
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL); // Avvia Encoder Sinistro
+  HAL_TIM_Base_Start_IT(&htim6);                  // Avvia Interrupt PID
+  /* USER CODE END 2 */
 
-    // 2. Sveglia il driver dei motori ADESSO (non dopo)
-    HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
+  /* Initialize leds */
+  BSP_LED_Init(LED2);
 
-    // 3. INCHIODA IL PROGRAMMA QUI: il PID non partirà mai e i motori gireranno all'infinito
-    while (1) {
-        BSP_LED_Toggle(LED2);
-        HAL_Delay(100);
-    }
+  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
+  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
-    // --- TUTTO CIÒ CHE C'È SOTTO NON VERRÀ ESEGUITO DURANTE IL TEST ---
-    HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-    HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
-    HAL_TIM_Base_Start_IT(&htim6);
-    /* USER CODE END 2 */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  MPU6050_Start_DMA_Read(&hi2c1);
+  HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
+
+  while (1)
+  {
+	    static uint32_t last_print = 0;
+		if (HAL_GetTick() - last_print > 500) {
+			printf("MAX_L: %ld | MAX_R: %ld\n", trace_vel_left, trace_vel_right);
+			last_print = HAL_GetTick();
+		}
+//	  if (ready_data) {
+//		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
+//		  float accel_angle = atan2f(sensor_data.accel_x, sensor_data.accel_z) * (180.0f / 3.14159265f);
+//
+//		  float gyro_rate = sensor_data.gyro_y / 131.0f; // full-scale range of 131 Lsb/(°/s)
+//
+//		  // Filtro Complementare
+//		  current_angle = alpha_filter * (current_angle + gyro_rate * dt) + (1.0f - alpha_filter) * accel_angle;
+//		  trace_angle = (int32_t) (current_angle * 100.0f);
+//		  ready_data = 0;
+//		  MPU6050_Start_DMA_Read(&hi2c1);
+//	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-
-
-
+  }
   /* USER CODE END 3 */
 }
 
@@ -366,9 +399,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 7;
+  htim2.Init.Prescaler = 2;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 999;
+  htim2.Init.Period = 7999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
@@ -419,9 +452,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 7;
+  htim3.Init.Prescaler = 2;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 999;
+  htim3.Init.Period = 7999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
@@ -635,8 +668,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         last_interrupt_time = interrupt_time;
     }
 }
-/* USER CODE END 4 */
-
 /* USER CODE END 4 */
 
 /**
