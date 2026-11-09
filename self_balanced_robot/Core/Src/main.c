@@ -183,25 +183,6 @@ int main(void)
   I2C1_Bus_Recovery();
   MPU6050_Init(&hi2c1);
 
-//  // Avvia Timer
-//  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-//  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
-//  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-//  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
-//
-//  // Sveglia il driver
-//  HAL_GPIO_WritePin(DRIVER_SLEEP_PIN_GPIO_Port, DRIVER_SLEEP_PIN_Pin, GPIO_PIN_SET);
-//
-//  // Forza metà potenza assoluta (30000 su 59999)
-//  MotorSpeed(30000, &htim2, TIM_CHANNEL_1, TIM_CHANNEL_2);
-//  MotorSpeed(30000, &htim3, TIM_CHANNEL_1, TIM_CHANNEL_2);
-//
-//  // Blocca il codice qui
-//  while(1) {
-//      BSP_LED_Toggle(LED2);
-//      HAL_Delay(100);
-//  }
-
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -225,23 +206,24 @@ int main(void)
 
   while (1)
   {
-	    static uint32_t last_print = 0;
-		if (HAL_GetTick() - last_print > 500) {
-			printf("MAX_L: %ld | MAX_R: %ld\n", trace_vel_left, trace_vel_right);
-			last_print = HAL_GetTick();
-		}
-//	  if (ready_data) {
-//		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
-//		  float accel_angle = atan2f(sensor_data.accel_x, sensor_data.accel_z) * (180.0f / 3.14159265f);
-//
-//		  float gyro_rate = sensor_data.gyro_y / 131.0f; // full-scale range of 131 Lsb/(°/s)
-//
-//		  // Filtro Complementare
-//		  current_angle = alpha_filter * (current_angle + gyro_rate * dt) + (1.0f - alpha_filter) * accel_angle;
-//		  trace_angle = (int32_t) (current_angle * 100.0f);
-//		  ready_data = 0;
-//		  MPU6050_Start_DMA_Read(&hi2c1);
-//	  }
+//	    static uint32_t last_print = 0;
+//		if (HAL_GetTick() - last_print > 500) {
+//			printf("MAX_L: %ld | MAX_R: %ld\n", trace_vel_left, trace_vel_right);
+//			last_print = HAL_GetTick();
+//		}
+
+	  if (ready_data) {
+		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
+		  float accel_angle = atan2f(sensor_data.accel_x, sensor_data.accel_z) * (180.0f / 3.14159265f);
+
+		  float gyro_rate = sensor_data.gyro_y / 131.0f; // full-scale range of 131 Lsb/(°/s)
+
+		  // Filtro Complementare
+		  current_angle = alpha_filter * (current_angle + gyro_rate * dt) + (1.0f - alpha_filter) * accel_angle;
+		  trace_angle = (int32_t) (current_angle * 100.0f);
+		  ready_data = 0;
+		  MPU6050_Start_DMA_Read(&hi2c1);
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

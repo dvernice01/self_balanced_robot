@@ -20,11 +20,11 @@ void MotorSpeed(int16_t speed, TIM_HandleTypeDef *hdl, uint32_t channel_pos, uin
     }
 
     int16_t speed_saturated = SaturatedSpeed(abs(speed));
-    uint32_t ccr = (speed_saturated * (ARR + 1)) / MAX_SPEED;
+    uint32_t ccr = (speed_saturated * (MOTOR_PWM_ARR + 1)) / MAX_SPEED;
     ccr += DEADBAND_PWM;
 
-    if (ccr > ARR) {
-        ccr = ARR;
+    if (ccr > MOTOR_PWM_ARR) {
+        ccr = MOTOR_PWM_ARR;
     }
 
     if (speed > 0) {

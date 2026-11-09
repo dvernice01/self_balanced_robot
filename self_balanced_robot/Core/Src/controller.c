@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 // --- PID Parameters ---
-float Kp_a = 15.5f, Ki_a = 0.0f, Kd_a = 0.0f; // PID Angle
-float Kp_v = 15.5f, Ki_v = 0.0f, Kd_v = 0.0f; // PID Velocity
+float Kp_a = 8.0f, Ki_a = 0.0f, Kd_a = 0.0f; // PID Angle
+float Kp_v = 8.0f, Ki_v = 0.0f, Kd_v = 0.0f; // PID Velocity
 
 static uint8_t loop_divider = 0;
 static float vel_target = 0.0f;
@@ -55,7 +55,7 @@ void PIDController(TIM_HandleTypeDef *htim_enc_right, TIM_HandleTypeDef *htim_en
 	} else {
 	    if (loop_divider >= 10) {
 	        loop_divider = 0;
-	        float angle_err = target_angle - current_angle;
+	        float angle_err = current_angle - target_angle;
 	        vel_target = AngleController(angle_err);
 	    }
 	    loop_divider++;
@@ -63,62 +63,39 @@ void PIDController(TIM_HandleTypeDef *htim_enc_right, TIM_HandleTypeDef *htim_en
 
     // --- LOW LEVEL CONTROL (Velocity control 200Hz) ---
 	// Right Motor
-//	int16_t right_ticks = (int16_t)__HAL_TIM_GET_COUNTER(htim_enc_right);
-//	__HAL_TIM_SET_COUNTER(htim_enc_right, 0);
-//
-//	float current_vel_right = (float)right_ticks;
-//	filtered_vel_right = (alpha * current_vel_right) + ((1.0f - alpha) * filtered_vel_right);
-//
-//	vel_err_right = vel_target - filtered_vel_right;
-//	vel_integral_right += vel_err_right;
-//	vel_derivative_right = vel_err_right - vel_prev_err_right;
-//	vel_prev_err_right = vel_err_right;
-//
-//	float command_right = (vel_err_right * Kp_v) + (vel_integral_right * Ki_v) + (vel_derivative_right * Kd_v); // Corretto segno "*"
-//	MotorSpeed((int16_t)command_right, htim_pwm_right, TIM_CHANNEL_1, TIM_CHANNEL_2);
-//
-//	// Left Motor
-//	int16_t left_ticks = (int16_t)__HAL_TIM_GET_COUNTER(htim_enc_left);
-//	__HAL_TIM_SET_COUNTER(htim_enc_left, 0);
-//
-//	float current_vel_left = (float)left_ticks;
-//	filtered_vel_left = (alpha * current_vel_left) + ((1.0f - alpha) * filtered_vel_left);
-//
-//	vel_err_left = vel_target - filtered_vel_left;
-//	vel_integral_left += vel_err_left;
-//	vel_derivative_left = vel_err_left - vel_prev_err_left;
-//	vel_prev_err_left = vel_err_left;
-//
-//	float command_left = (vel_err_left * Kp_v) + (vel_integral_left * Ki_v) + (vel_derivative_left * Kd_v);
-//	MotorSpeed((int16_t)command_left, htim_pwm_left, TIM_CHANNEL_1, TIM_CHANNEL_2);
-//
-//	trace_vel_left = (int32_t)filtered_vel_left;
-//	trace_vel_right = (int32_t)filtered_vel_right;
+	int16_t right_ticks = (int16_t)__HAL_TIM_GET_COUNTER(htim_enc_right);
+	__HAL_TIM_SET_COUNTER(htim_enc_right, 0);
+
+	float current_vel_right = (float)right_ticks;
+	filtered_vel_right = (alpha * current_vel_right) + ((1.0f - alpha) * filtered_vel_right);
+
+	vel_err_right = vel_target - filtered_vel_right;
+	vel_integral_right += vel_err_right;
+	vel_derivative_right = vel_err_right - vel_prev_err_right;
+	vel_prev_err_right = vel_err_right;
+
+	float command_right = (vel_err_right * Kp_v) + (vel_integral_right * Ki_v) + (vel_derivative_right * Kd_v); // Corretto segno "*"
+	MotorSpeed((int16_t)command_right, htim_pwm_right, TIM_CHANNEL_1, TIM_CHANNEL_2);
+	// Left Motor
+	int16_t left_ticks = (int16_t)__HAL_TIM_GET_COUNTER(htim_enc_left);
+	__HAL_TIM_SET_COUNTER(htim_enc_left, 0);
+
+	float current_vel_left = (float)left_ticks;
+	filtered_vel_left = (alpha * current_vel_left) + ((1.0f - alpha) * filtered_vel_left);
+
+	vel_err_left = vel_target - filtered_vel_left;
+	vel_integral_left += vel_err_left;
+	vel_derivative_left = vel_err_left - vel_prev_err_left;
+	vel_prev_err_left = vel_err_left;
+
+	float command_left = (vel_err_left * Kp_v) + (vel_integral_left * Ki_v) + (vel_derivative_left * Kd_v);
+	MotorSpeed((int16_t)command_left, htim_pwm_left, TIM_CHANNEL_1, TIM_CHANNEL_2);
 
 
-
-
-
-    // --- LOW LEVEL CONTROL (Velocity control 200Hz) ---
-    	// Right Motor
-        // ... (lettura encoder e calcolo)
-    	float command_right = (vel_err_right * Kp_v) + (vel_integral_right * Ki_v) + (vel_derivative_right * Kd_v);
-    	// COMMENTA QUESTA:
-        // MotorSpeed((int16_t)command_right, htim_pwm_right, TIM_CHANNEL_1, TIM_CHANNEL_2);
-        // INSERISCI QUESTA:
-        MotorSpeed(7999, htim_pwm_right, TIM_CHANNEL_1, TIM_CHANNEL_2);
-
-    	// Left Motor
-        // ... (lettura encoder e calcolo)
-    	float command_left = (vel_err_left * Kp_v) + (vel_integral_left * Ki_v) + (vel_derivative_left * Kd_v);
-        // COMMENTA QUESTA:
-    	// MotorSpeed((int16_t)command_left, htim_pwm_left, TIM_CHANNEL_1, TIM_CHANNEL_2);
-        // INSERISCI QUESTA:
-        MotorSpeed(7999, htim_pwm_left, TIM_CHANNEL_1, TIM_CHANNEL_2);
-
-    	trace_vel_left = (int32_t)filtered_vel_left;
-    	trace_vel_right = (int32_t)filtered_vel_right;
-
+	trace_vel_left = (int32_t)left_ticks;
+	trace_vel_right = (int32_t)right_ticks;
+//	MotorSpeed(7999, htim_pwm_right, TIM_CHANNEL_1, TIM_CHANNEL_2);
+//	MotorSpeed(7999, htim_pwm_left, TIM_CHANNEL_1, TIM_CHANNEL_2);
 }
 
 float AngleController(float err) {
