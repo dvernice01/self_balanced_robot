@@ -1,2 +1,5 @@
-../Core/Src/controller.c:41:6:PIDController	3
-../Core/Src/controller.c:101:7:AngleController	1
+../Core/Src/controller.c:36:21:clampf	3
+../Core/Src/controller.c:40:13:ResetControllers	1
+../Core/Src/controller.c:49:14:AngleController	1
+../Core/Src/controller.c:55:14:VelocityPID	1
+../Core/Src/controller.c:65:6:PIDController	5

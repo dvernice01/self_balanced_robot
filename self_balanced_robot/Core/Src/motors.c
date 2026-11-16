@@ -12,26 +12,24 @@ int16_t SaturatedSpeed(int16_t speed) {
     return speed;
 }
 
-void MotorSpeed(int16_t speed, TIM_HandleTypeDef *hdl, uint32_t channel_pos, uint32_t channel_neg) {
+void MotorSpeed(int16_t speed, TIM_HandleTypeDef *hdl, uint32_t ch_pos, uint32_t ch_neg) {
     if (speed == 0) {
-        __HAL_TIM_SET_COMPARE(hdl, channel_pos, 0);
-        __HAL_TIM_SET_COMPARE(hdl, channel_neg, 0);
+        __HAL_TIM_SET_COMPARE(hdl, ch_pos, 0);
+        __HAL_TIM_SET_COMPARE(hdl, ch_neg, 0);
         return;
     }
 
-    int16_t speed_saturated = SaturatedSpeed(abs(speed));
-    uint32_t ccr = (speed_saturated * (MOTOR_PWM_ARR + 1)) / MAX_SPEED;
-    ccr += DEADBAND_PWM;
+    int32_t mag = abs((int32_t)speed);
+    if (mag > MAX_SPEED) mag = MAX_SPEED;
 
-    if (ccr > MOTOR_PWM_ARR) {
-        ccr = MOTOR_PWM_ARR;
-    }
+    uint32_t ccr = DEADBAND_PWM +
+        ((uint32_t)mag * (MOTOR_PWM_ARR - DEADBAND_PWM)) / MAX_SPEED;
 
     if (speed > 0) {
-        __HAL_TIM_SET_COMPARE(hdl, channel_pos, ccr);
-        __HAL_TIM_SET_COMPARE(hdl, channel_neg, 0);
+        __HAL_TIM_SET_COMPARE(hdl, ch_pos, ccr);
+        __HAL_TIM_SET_COMPARE(hdl, ch_neg, 0);
     } else {
-        __HAL_TIM_SET_COMPARE(hdl, channel_pos, 0);
-        __HAL_TIM_SET_COMPARE(hdl, channel_neg, ccr);
+        __HAL_TIM_SET_COMPARE(hdl, ch_pos, 0);
+        __HAL_TIM_SET_COMPARE(hdl, ch_neg, ccr);
     }
 }

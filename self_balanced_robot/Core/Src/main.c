@@ -64,12 +64,19 @@ float current_angle = 0.0f;
 int32_t trace_angle = 0;
 volatile uint8_t stop_request = 0;
 volatile int16_t target_velocity = 0;
+float gyro_offset = 0.0f;
+volatile float gyro_rate;
+volatile float accel_angle;
 
 const float alpha_filter = 0.98f;
 const float dt = 0.01f;
 
 extern volatile int32_t trace_vel_left;
 extern volatile int32_t trace_vel_right;
+volatile int32_t trace_gyro;
+
+volatile uint32_t last_sensor_ms;   // aggiornata ogni volta che arriva un dato valido
+volatile uint32_t i2c_err_count = 0, i2c_err_code = 0, i2c_recoveries = 0;
 
 /* USER CODE END PV */
 
@@ -136,6 +143,12 @@ void I2C1_Bus_Recovery(void) {
     // I'm configuring ports as I2C connection again instead of being a GPIO port
     MX_I2C1_Init();
 }
+
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
+    i2c_err_count++;
+    i2c_err_code = HAL_I2C_GetError(hi2c);
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -183,6 +196,18 @@ int main(void)
   I2C1_Bus_Recovery();
   MPU6050_Init(&hi2c1);
 
+  MPU6050_Start_DMA_Read(&hi2c1);
+  float sum = 0.0f;
+  const int N = 500;
+  for (int i = 0; i < N; i++) {
+      while (!ready_data) {}
+      sum += sensor_data.gyro_y;         // già in °/s
+      ready_data = 0;
+      MPU6050_Start_DMA_Read(&hi2c1);
+  }
+  gyro_offset = sum / N;
+
+
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -190,6 +215,7 @@ int main(void)
 
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL); // Avvia Encoder Destro
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL); // Avvia Encoder Sinistro
+  last_sensor_ms = HAL_GetTick();
   HAL_TIM_Base_Start_IT(&htim6);                  // Avvia Interrupt PID
   /* USER CODE END 2 */
 
@@ -210,19 +236,39 @@ int main(void)
 //		if (HAL_GetTick() - last_print > 500) {
 //			printf("MAX_L: %ld | MAX_R: %ld\n", trace_vel_left, trace_vel_right);
 //			last_print = HAL_GetTick();
+//			printf("ARR2: %lu ARR3: %lu\r\n",
+//			       (unsigned long)__HAL_TIM_GET_AUTORELOAD(&htim2),
+//			       (unsigned long)__HAL_TIM_GET_AUTORELOAD(&htim3));
 //		}
 
 	  if (ready_data) {
+		  last_sensor_ms = HAL_GetTick();
 		  MPU6050_Process_Data(&sensor_data.accel_x, &sensor_data.accel_z, &sensor_data.gyro_y);
-		  float accel_angle = atan2f(sensor_data.accel_x, sensor_data.accel_z) * (180.0f / 3.14159265f);
+		  accel_angle = atan2f(sensor_data.accel_x, sensor_data.accel_z) * (180.0f / 3.14159265f);
 
-		  float gyro_rate = sensor_data.gyro_y / 131.0f; // full-scale range of 131 Lsb/(°/s)
-
+		  gyro_rate = sensor_data.gyro_y - gyro_offset;
+		  //trace_gyro = (int32_t)(gyro_rate * 100.0f);   // 100 = 1 °/s
 		  // Filtro Complementare
 		  current_angle = alpha_filter * (current_angle + gyro_rate * dt) + (1.0f - alpha_filter) * accel_angle;
 		  trace_angle = (int32_t) (current_angle * 100.0f);
-		  ready_data = 0;
-		  MPU6050_Start_DMA_Read(&hi2c1);
+
+//		  static uint32_t t = 0;
+//		  if (HAL_GetTick() - t >= 100) {
+//		      t = HAL_GetTick();
+//		      printf("A:%.1f G:%.1f\r\n", current_angle, gyro_rate);
+//		  }
+
+			last_sensor_ms = HAL_GetTick();
+			ready_data = 0;
+			MPU6050_Start_DMA_Read(&hi2c1);
+	  } else if (HAL_GetTick() - last_sensor_ms > 20) {
+	      i2c_recoveries++;
+	      HAL_I2C_DeInit(&hi2c1);
+	      I2C1_Bus_Recovery();
+	      MX_I2C1_Init();
+	      MPU6050_Init(&hi2c1);              // il sensore può essersi resettato
+	      MPU6050_Start_DMA_Read(&hi2c1);
+	      last_sensor_ms = HAL_GetTick();
 	  }
     /* USER CODE END WHILE */
 
@@ -535,7 +581,7 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 9;
+  htim6.Init.Prescaler = 3;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim6.Init.Period = 41999;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
